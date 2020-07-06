@@ -38,16 +38,28 @@ func DrawOnBufAt(
 	}
 }
 
+// FbInit initializes a frambuffer by querying ioctls and returns the width and
+// height in pixels, the stride, and the bytes per pixel
+func FbInit() (int, int, int, int, error) {
+	fbo, err := framebuffer.Init(fbdev)
+
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	width, height := fbo.Size()
+	stride := fbo.Stride()
+	bpp := fbo.Bpp()
+	fmt.Fprintf(os.Stdout, "Framebuffer resolution: %v %v %v %v\n", width, height, stride, bpp)
+	return width, height, stride, bpp, nil
+}
+
 func DrawImageAt(img image.Image, posx int, posy int) error {
-	fb, err := framebuffer.Init(fbdev)
+	width, height, stride, bpp, err := FbInit()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Framebuffer init error: %v\n", err)
-		return err
+		// fallback values, probably a bad assumption
+		width, height, stride, bpp = 1920, 1080, 1920*4, 4
 	}
-	width, height := fb.Size()
-	stride := fb.Stride()
-	bpp := fb.Bpp()
-	fmt.Fprintf(os.Stdout, "Framebuffer resolution: %v %v %v %v\n", width, height, stride, bpp)
 	buf := make([]byte, width*height*bpp)
 	DrawOnBufAt(buf, img, posx, posy, stride, bpp)
 	err = ioutil.WriteFile(fbdev, buf, 0600)
@@ -85,15 +97,10 @@ func DrawScaledOnBufAt(
 }
 
 func DrawScaledImageAt(img image.Image, posx int, posy int, factor int) error {
-	fb, err := framebuffer.Init(fbdev)
+	width, height, stride, bpp, err := FbInit()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Framebuffer init error: %v\n", err)
-		return err
 	}
-	width, height := fb.Size()
-	stride := fb.Stride()
-	bpp := fb.Bpp()
-	fmt.Fprintf(os.Stdout, "Framebuffer resolution: %v %v %v %v\n", width, height, stride, bpp)
 	buf := make([]byte, width*height*bpp)
 	DrawScaledOnBufAt(buf, img, posx, posy, factor, stride, bpp)
 	err = ioutil.WriteFile(fbdev, buf, 0600)
