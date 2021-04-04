@@ -44,6 +44,7 @@ import (
 	"time"
 
 	"golang.org/x/tools/go/ast/astutil"
+	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
 
 	"github.com/u-root/u-root/pkg/golang"
@@ -212,6 +213,9 @@ type Package struct {
 	// directory containing its source files.
 	Name string
 
+	// Pkg is the actual data about the package.
+	Pkg *packages.Package
+
 	fset        *token.FileSet
 	ast         *ast.Package
 	sortedFiles []*ast.File
@@ -221,6 +225,9 @@ type Package struct {
 
 	// initCount keeps track of what the next init's index should be.
 	initCount uint
+
+	// mainFuncName is the name for the renamed main().
+	mainFuncName string
 
 	// init is the cmd.Init function that calls all other InitXs in the
 	// right order.
@@ -375,6 +382,70 @@ func (p *Package) nextInit(addToCallList bool) *ast.Ident {
 	return i
 }
 
+// importName finds the package path to import, given the go/types pkg path.
+//
+// E.g. go/types uses the fully vendored name of a package, such as
+// github.com/u-root/u-root/vendor/golang.org/x/sys/unix. importName returns
+// the name that should appear in the import statement for this package, which
+// is golang.org/x/sys/unix.
+//
+// Since the only way this happens is through an implicit import, we know that
+// somewhere in the dependency tree this package must exist, so we visit all
+// dependencies looking for the go/types package path looking for a valid
+// package import path statement.
+func importName(p *packages.Package, typePkgPath string) string {
+	var importName string
+	// Go through all dependent packages.
+	packages.Visit([]*packages.Package{p}, func(p *packages.Package) bool {
+		// Yeah, packages.Visit already goes through all imports -- but
+		// it does not give us the index of the p.Imports map, which is
+		// the "import paths appearing in the package's Go source
+		// files".
+		for name, pkg := range p.Imports {
+			if pkg.PkgPath == typePkgPath {
+				importName = name
+				return false
+			}
+		}
+		return true
+	}, nil)
+	if len(importName) > 0 {
+		return importName
+	}
+	// It doesn't appear. We'll go import it.
+	return typePkgPath
+}
+
+// pkgImportNameTaken checks whether name would conflict with any existing
+// imports in f or variable/const/func declarations in p.
+//
+// Import statements may conflict with import statements in other files in
+// the same package.
+func (p *Package) pkgImportNameTaken(name string, f *ast.File) bool {
+	// package scope is all variable, const, and func names
+	if p.Pkg.Types.Scope().Lookup(name) != nil {
+		return true
+	}
+
+	// file scope is imports. Only imports from this file can conflict.
+	// Imports in other files have no effect.
+	if p.Pkg.TypesInfo.Scopes[f].Lookup(name) != nil {
+		return true
+	}
+	return false
+}
+
+// newImportName returns an unused import name in f/p with the prefix name.
+func (p *Package) newImportName(name string, f *ast.File) string {
+	var i int
+	proposed := name
+	for p.pkgImportNameTaken(proposed, f) {
+		proposed = fmt.Sprintf("%s%d", name, i)
+		i++
+	}
+	return proposed
+}
+
 // TODO:
 // - write an init name generator, in case InitN is already taken.
 // - also rewrite all non-Go-stdlib dependencies.
@@ -386,6 +457,7 @@ func (p *Package) rewriteFile(f *ast.File) bool {
 
 	// Map of fully qualified package name -> imported alias in the file.
 	importAliases := make(map[string]string)
+	unaliasedImports := make(map[string]struct{})
 	for _, impt := range f.Imports {
 		if impt.Name != nil {
 			importPath, err := strconv.Unquote(impt.Path.Value)
@@ -400,15 +472,39 @@ func (p *Package) rewriteFile(f *ast.File) bool {
 	// this function to map fully qualified package paths to a local alias,
 	// if it exists.
 	qualifier := func(pkg *types.Package) string {
-		name, ok := importAliases[pkg.Path()]
-		if ok {
+		// pkg.Path() = fully vendored package name.
+		// importPath = package name as it appears in `import` statement.
+		importPath := importName(p.Pkg, pkg.Path())
+
+		if name, ok := importAliases[importPath]; ok {
 			return name
 		}
+		if _, ok := unaliasedImports[importPath]; ok {
+			// The package name is NOT the last component of its path.
+			return pkg.Name()
+		}
 		// When referring to self, don't use any package name.
-		if pkg == p.types {
+		if pkg == p.Pkg.Types {
 			return ""
 		}
-		return pkg.Name()
+
+		// This type is not imported in this file yet.
+		//
+		// This typically happens when a derived global import uses a
+		// type that was previously only implicitly used.
+		//
+		// E.g. if we call func Foo() *log.Logger like this:
+		//
+		//   var l = pkg.Foo()
+		//
+		// Then it's possible the `log` package was not referred to at
+		// all previously, and we now need to add an import for log.
+		importAlias := p.newImportName(pkg.Name(), f)
+		astutil.AddNamedImport(p.Pkg.Fset, f, importAlias, importPath)
+		// Make sure we do not add this import twice.
+		importAliases[importPath] = importAlias
+
+		return importAlias
 	}
 
 	for _, decl := range f.Decls {
