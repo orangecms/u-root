@@ -13,7 +13,7 @@ import (
 	"github.com/orangecms/go-framebuffer/framebuffer"
 )
 
-const fbdev = "/dev/fb0"
+const fbdev = "/dev/fb1"
 
 /*
 	// YUV conversion
@@ -195,10 +195,16 @@ func DrawColorDebug(width int, height int, stride int, bpp int) error {
 // size is 960383, 960383-255 / 832 = 1154
 // or 960027 ??
 func DrawImageDebug(img image.Image, width int, height int, stride int, bpp int) error {
+	w, h, s, b, err := FbInit()
+	if err != nil {
+		fmt.Fprintf(os.Stdout, "\nfb init %v\n", err)
+	} else {
+		fmt.Fprintf(os.Stdout, "\n=== fb w %v h %v s %v b %v\n", w, h, s, b)
+	}
 	buf := make([]byte, 832*1153)
 	DrawOnBufAt(buf, img, 180, 20, stride, bpp)
 	DrawOnBufAt(buf, img, 180, 720, stride, bpp)
-	err := ioutil.WriteFile(fbdev, buf, 0600)
+	err = ioutil.WriteFile(fbdev, buf, 0600)
 	if err != nil {
 		return fmt.Errorf("Error writing to framebuffer: %v %v %v %v", width, height, stride, err)
 	}
