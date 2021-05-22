@@ -13,7 +13,7 @@ import (
 	"github.com/orangecms/go-framebuffer/framebuffer"
 )
 
-const fbdev = "/dev/fb1"
+const fbdev = "/dev/fb0"
 
 /*
 	// YUV conversion
