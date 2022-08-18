@@ -30,6 +30,10 @@ github.com/gliderlabs/ssh
 # github.com/gojuno/minimock/v3 v3.0.8
 ## explicit; go 1.13
 github.com/gojuno/minimock/v3
+# github.com/gokrazy/fbstatus v0.0.0-20220807084158-b9373a7d51be
+## explicit; go 1.18
+github.com/gokrazy/fbstatus/internal/fb
+github.com/gokrazy/fbstatus/internal/fbimage
 # github.com/google/go-cmp v0.5.6
 ## explicit; go 1.8
 github.com/google/go-cmp/cmp
@@ -194,6 +198,10 @@ golang.org/x/crypto/openpgp/packet
 golang.org/x/crypto/openpgp/s2k
 golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
+# golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
+## explicit; go 1.12
+golang.org/x/image/draw
+golang.org/x/image/math/f64
 # golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
