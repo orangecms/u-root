@@ -114,9 +114,11 @@ func DrawImageAt(img image.Image, posx int, posy int) error {
 	// buffer contents to the (BGR565) framebuffer.
 	buffer := image.NewRGBA(bounds)
 	bgcolor := color.RGBA{R: 0x1f, G: 0x11, B: 0x19, A: 255} // OSFC color #4f51a9
+	posx += 20
+	posy += 80
 
 	draw.Draw(buffer, bounds, &image.Uniform{bgcolor}, image.Point{}, draw.Src)
-	rect := scaleImage(img.Bounds(), bounds.Max.X/5, bounds.Max.Y/5)
+	rect := scaleImage(img.Bounds(), bounds.Max.X/3, bounds.Max.Y/3)
 	rect = rect.Add(image.Point{posx, posy})
 
 	xdraw.BiLinear.Scale(buffer, rect, img, img.Bounds(), draw.Over, nil)
@@ -126,15 +128,20 @@ func DrawImageAt(img image.Image, posx int, posy int) error {
 	// updates seem smooth enough, most likely because we are only
 	// updating timestamps.
 	if d, ok := devimg.(*fbimage.BGR565); ok {
-		for i := 10; i < 20; i++ {
+		for i := 5; i < 15; i++ {
 			copyRGBAtoBGR565(d, buffer)
 			draw.Draw(buffer, bounds, &image.Uniform{bgcolor}, image.Point{}, draw.Src)
-			rect = rect.Add(image.Point{posx + i, posy})
+			rect = rect.Add(image.Point{10, 0})
 			xdraw.BiLinear.Scale(buffer, rect, img, img.Bounds(), draw.Over, nil)
 		}
 	} else {
 		fmt.Printf("framebuffer not using pixel format BGR565")
-		draw.Draw(devimg, bounds, buffer, image.Point{}, draw.Src)
+		for i := 5; i < 15; i++ {
+			draw.Draw(devimg, bounds, buffer, image.Point{}, draw.Src)
+			draw.Draw(buffer, bounds, &image.Uniform{bgcolor}, image.Point{}, draw.Src)
+			rect = rect.Add(image.Point{10, 0})
+			xdraw.BiLinear.Scale(buffer, rect, img, img.Bounds(), draw.Over, nil)
+		}
 	}
 	/*
 		err = os.WriteFile(fbdev, buf, 0o600)
