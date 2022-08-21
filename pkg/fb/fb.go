@@ -113,7 +113,7 @@ func DrawImageAt(img image.Image, posx int, posy int) error {
 	// operations are optimized in Go. Only at the very end do we copy the
 	// buffer contents to the (BGR565) framebuffer.
 	buffer := image.NewRGBA(bounds)
-	bgcolor := color.RGBA{R: 0x4f, G: 0x51, B: 0xa9, A: 255} // OSFC color #4f51a9
+	bgcolor := color.RGBA{R: 0x1f, G: 0x11, B: 0x19, A: 255} // OSFC color #4f51a9
 
 	draw.Draw(buffer, bounds, &image.Uniform{bgcolor}, image.Point{}, draw.Src)
 	rect := scaleImage(img.Bounds(), bounds.Max.X, bounds.Max.Y)
