@@ -17,7 +17,7 @@ import (
 // FileLoad loads the given kernel as the new kernel with the given ramfs and
 // cmdline.
 //
-// The kexec_file_load(2) syscall is x86-64 and arm64 only.
+// The kexec_file_load(2) syscall is x86-64, arm64 and riscv64 only.
 func FileLoad(kernel, ramfs *os.File, cmdline string) error {
 	var flags int
 	var ramfsfd int
