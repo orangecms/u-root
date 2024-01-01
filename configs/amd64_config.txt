@@ -41,6 +41,7 @@ CONFIG_DEVPORT=y
 # For the kernel doing the kexec'ing:
 
 CONFIG_CRYPTO=y
+CONFIG_CRYPTO_SHA256=y
 CONFIG_KEXEC=y
 CONFIG_KEXEC_FILE=y
 
